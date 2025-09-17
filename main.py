@@ -1,41 +1,37 @@
-import os
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-TOKEN = os.environ.get("TOKEN")  # set TOKEN in env (or paste token string here)
+# Bot tokeningizni shu yerga yozing
+TOKEN = 'YOUR_BOT_TOKEN_HERE'
 
-def remove_status_messages(update: Update, context: CallbackContext):
-    msg = update.effective_message
-    chat_id = msg.chat.id
-    msg_id = msg.message_id
-
-    # new_chat_members, left_chat_member, new_chat_title, new_chat_photo, delete_chat_photo, migrate_to_chat_id, migrate_from_chat_id, pinned_message ...
-    # Filters.status_update will match these service messages.
-    try:
-        # Bot must be admin with 'Delete messages' permission
-        context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-    except Exception as e:
-        # ignore failures (lack of permission, message already deleted, etc.)
-        # optional: log e
-        pass
+async def delete_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Service xabarlarni (new_chat_members, left_chat_member) o'chirish funksiyasi.
+    Bu handler faqat guruh xabarlariga ishlaydi.
+    """
+    if update.effective_chat.type in ['group', 'supergroup']:
+        message = update.message
+        # Agar xabar service xabari bo'lsa (qo'shish yoki o'chirish)
+        if message.new_chat_members or message.left_chat_member or message.migrate_to_chat_id or message.migrate_from_chat_id:
+            try:
+                await context.bot.delete_message(
+                    chat_id=update.effective_chat.id,
+                    message_id=message.message_id
+                )
+                print(f"Service xabar o'chirildi: {message.message_id}")
+            except Exception as e:
+                print(f"Xatoni o'chirishda: {e}")
 
 def main():
-    if not TOKEN:
-        print("TOKEN environment variable not set.")
-        return
+    # Application yaratish
+    application = Application.builder().token(TOKEN).build()
+    
+    # Handler qo'shish: barcha xabarlarga (faqat service uchun filter ishlatish mumkin)
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, delete_service_messages))
+    
+    # Botni ishga tushirish
+    print("Bot ishga tushdi...")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-    updater = Updater(token=TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    # Catch all status update service messages (join/leave/pinned/migrate/etc.)
-    dp.add_handler(MessageHandler(Filters.status_update, remove_status_messages))
-
-    # Optional: also remove plain text "welcome" messages (if you want)
-    # dp.add_handler(MessageHandler(Filters.text & Filters.group, remove_text_messages))
-
-    updater.start_polling()
-    print("Bot started")
-    updater.idle()
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
