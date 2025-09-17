@@ -1,6 +1,7 @@
+import os
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+TOKEN = os.getenv("TOKEN")
 
 def start(update, context):
     update.message.reply_text("Salom! Bot ishlayapti 🚀")
